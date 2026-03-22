@@ -8,6 +8,8 @@ import { ShoppingCart, Users } from 'lucide-react';
 import Navbar from './components/Navbar.jsx';
 import Dashboard from './pages/Dashboard.jsx'; // Pharmacist/Admin default
 import InventoryView from './pages/InventoryView.jsx';
+import BillingView from './pages/BillingView.jsx';
+import BillManagementView from './pages/BillManagementView.jsx';
 import PrescriptionsView from './pages/PrescriptionsView.jsx';
 import AnalyticsView from './pages/AnalyticsView.jsx';
 import FindMedicineView from './pages/FindMedicineView.jsx'; // Customer default
@@ -19,6 +21,7 @@ import Settings from './components/Settings.jsx';
 import Messages from './components/Messages.jsx';
 // --- Auth and Utility Imports ---
 import AuthPage from './pages/AuthPage.jsx'; 
+import LandingPage from './pages/LandingPage.jsx';
 import {
   mockMedicines,
   mockPrescriptions,
@@ -59,6 +62,10 @@ const renderView = (activeView, userRole) => {
         return <Dashboard medicines={mockMedicines} prescriptions={mockPrescriptions} sales={mockSales} />;
       case 'inventory':
         return <InventoryView medicines={mockMedicines} />;
+      case 'billing':
+        return <BillingView />;
+      case 'bills':
+        return <BillManagementView />;
       case 'prescriptions':
         return <PrescriptionsView prescriptions={mockPrescriptions} />;
       case 'analytics':
@@ -88,7 +95,7 @@ const renderView = (activeView, userRole) => {
         return <FindMedicineView pharmacies={mockNearbyPharmacies} />;
     }
   }
-  return <Navigate to="/AuthPage" replace />;
+  return <Navigate to="/" replace />;
 };
 
 
@@ -175,7 +182,10 @@ const App = () => {
 
   const handleLogout = () => {
       localStorage.removeItem('user_auth');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       localStorage.removeItem('userInfo'); // <--- Clear user info too
+      localStorage.removeItem('user_profile');
       setUserRole(null);
       setActiveView('dashboard'); 
       // Do NOT clear theme on logout, let user keep their theme preference
@@ -202,13 +212,18 @@ const App = () => {
     return <div className="min-h-screen flex items-center justify-center text-xl text-gray-500">Loading Session...</div>;
   }
   
-  const authRedirectPath = userRole ? `/app/${getInitialAuthView(userRole)}` : '/AuthPage';
+  const authRedirectPath = userRole ? `/app/${getInitialAuthView(userRole)}` : '/';
   
   return (
     <Router>
       <Routes>
-        {/* Route for Landing Page/Login. */}
-        <Route path="/" element={<Navigate to="/AuthPage" replace />} />
+        {/* Route for landing page. */}
+        <Route
+          path="/"
+          element={
+            userRole ? <Navigate to={`/app/${getInitialAuthView(userRole)}`} replace /> : <LandingPage onLogin={handleLogin} onLogout={handleLogout} />
+          }
+        />
         {/* Pass setTheme/theme to AuthPage if you want to apply the theme there too. */}
         <Route 
           path="/AuthPage" 
@@ -234,7 +249,7 @@ const App = () => {
                 setTheme={setTheme} // <--- PASSING SET THEME
               />
             ) : (
-              <Navigate to="/AuthPage" replace />
+              <Navigate to="/" replace />
             )
           }
         />
@@ -243,7 +258,7 @@ const App = () => {
         <Route
           path="*"
           element={
-            userRole ? <Navigate to={authRedirectPath} replace /> : <Navigate to="/AuthPage" replace />
+            userRole ? <Navigate to={authRedirectPath} replace /> : <Navigate to="/" replace />
           }
         />
       </Routes>

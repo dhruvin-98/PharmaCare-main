@@ -88,7 +88,7 @@ const UploadPrescriptionView = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl p-8 text-white">
+      <div className="bg-linear-to-r from-purple-600 to-purple-700 rounded-2xl p-8 text-white">
         <h2 className="text-4xl font-bold mb-2">Upload Prescription</h2>
         <p className="text-purple-100 text-lg">
           Get your medicines delivered quickly and safely

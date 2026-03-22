@@ -44,13 +44,30 @@ const userSchema = new mongoose.Schema(
     otpExpires: {
       type: Date,
     },
+    otpChannel: {
+      type: String,
+      enum: ['email', 'phone'],
+      default: 'email',
+    },
     isVerified: {
       type: Boolean,
       default: false,
     },
-     address: {
-    type: String,
-    default: ''
+    address: {
+      type: String,
+      default: ''
+    },
+    city: {
+      type: String,
+      default: '',
+    },
+    state: {
+      type: String,
+      default: '',
+    },
+    pincode: {
+      type: String,
+      default: '',
     },
     licenseNumber: {
       type: String,

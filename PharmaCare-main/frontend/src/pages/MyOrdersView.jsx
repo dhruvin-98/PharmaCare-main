@@ -91,7 +91,7 @@ const MyOrdersView = () => {
         <p className="text-gray-600 mb-6">
           Upload a prescription or browse medicines to place your first order
         </p>
-        <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-full font-semibold hover:shadow-lg transition">
+        <button className="bg-linear-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-full font-semibold hover:shadow-lg transition">
           Start Shopping
         </button>
       </div>
@@ -120,7 +120,7 @@ const MyOrdersView = () => {
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 py-3 px-4 rounded-lg font-semibold transition ${
               activeTab === tab.id
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                ? 'bg-linear-to-r from-blue-600 to-purple-600 text-white shadow-md'
                 : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
@@ -143,7 +143,7 @@ const MyOrdersView = () => {
             className="bg-white rounded-xl shadow-md hover:shadow-lg transition overflow-hidden"
           >
             {/* Order Header */}
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 border-b border-gray-200">
+            <div className="bg-linear-to-r from-blue-50 to-purple-50 p-6 border-b border-gray-200">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center space-x-4">
                   <div className="bg-white rounded-lg p-3 shadow-sm">
@@ -203,14 +203,14 @@ const MyOrdersView = () => {
                   </h4>
                   <div className="space-y-3">
                     <div className="flex items-start space-x-3">
-                      <MapPin className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <MapPin className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                       <div>
                         <div className="text-sm text-gray-600">Delivery Address</div>
                         <div className="font-medium text-gray-900">{order.address}</div>
                       </div>
                     </div>
                     <div className="flex items-start space-x-3">
-                      <Package className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <Package className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                       <div>
                         <div className="text-sm text-gray-600">Pharmacy</div>
                         <div className="font-medium text-gray-900">{order.pharmacy}</div>
@@ -218,7 +218,7 @@ const MyOrdersView = () => {
                     </div>
                     {order.status === 'delivered' ? (
                       <div className="flex items-start space-x-3">
-                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
                         <div>
                           <div className="text-sm text-gray-600">Delivered On</div>
                           <div className="font-medium text-green-700">
@@ -232,7 +232,7 @@ const MyOrdersView = () => {
                       </div>
                     ) : (
                       <div className="flex items-start space-x-3">
-                        <Clock className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                        <Clock className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
                         <div>
                           <div className="text-sm text-gray-600">Estimated Delivery</div>
                           <div className="font-medium text-orange-700">

@@ -9,37 +9,43 @@ const medicineSchema = mongoose.Schema(
             required: true,
             trim: true,
         },
-        batch: {
-            type: String,
-            required: true,
-            unique: true, // Batch number should be unique
-            trim: true,
-        },
         category: {
             type: String,
             required: true,
             trim: true,
         },
-        stock: {
+        quantity: {
             type: Number,
             required: true,
             default: 0,
             min: 0,
         },
-        reorderLevel: {
-            type: Number,
-            required: true,
-            default: 10, // Minimum stock to trigger reorder warning
-            min: 0,
-        },
-        price: {
+        pricePerPacket: {
             type: Number,
             required: true,
             min: 0.01,
+            description: "Price per packet (10 pills per packet)"
         },
-        expiry: {
-            type: Date, // Stored as a JavaScript Date object
+        expiryDate: {
+            type: Date,
             required: true,
+        },
+        status: {
+            type: String,
+            enum: ['instock', 'out_of_stock'],
+            default: 'instock',
+        },
+        batchNumber: {
+            type: String,
+            trim: true,
+            sparse: true,
+            index: true,
+        },
+        reorderLevel: {
+            type: Number,
+            required: true,
+            default: 10,
+            min: 0,
         },
         // Reference to the pharmacist/user who owns this inventory (for multi-pharmacy support)
         user: {
@@ -52,6 +58,9 @@ const medicineSchema = mongoose.Schema(
         timestamps: true,
     }
 );
+
+// Drop existing unique index if it exists and recreate with sparse option
+medicineSchema.index({ batchNumber: 1, user: 1 }, { sparse: true });
 
 const Medicine = mongoose.model('Medicine', medicineSchema);
 

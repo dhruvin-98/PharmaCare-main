@@ -23,6 +23,7 @@ export const mockSales = [
   { date: '2025-10-28', revenue: 16700, orders: 55 },
   { date: '2025-10-29', revenue: 14300, orders: 48 },
   { date: '2025-10-30', revenue: 19500, orders: 67 },
+  { date: '2025-10-31', revenue: 21000, orders: 72 },
 ];
 
 export const mockNearbyPharmacies = [

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Package, FileText, TrendingUp, 
   Search, Upload, ShoppingCart, LogOut, Menu, X,
   Pill, User, Settings, Bell, ChevronDown, Sun, Moon,
-  HelpCircle, Mail, Check, Clock, Package2, AlertCircle
+  HelpCircle, Mail, Check, Clock, Package2, AlertCircle, Receipt
 } from 'lucide-react';
 
 const Navbar = ({ 
@@ -85,6 +85,8 @@ const Navbar = ({
       return [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'inventory', label: 'Inventory', icon: Package },
+        { id: 'billing', label: 'Create Bill', icon: Receipt },
+        { id: 'bills', label: 'Bills', icon: FileText },
         { id: 'prescriptions', label: 'Prescriptions', icon: FileText },
         { id: 'analytics', label: 'Analytics', icon: TrendingUp },
         // { id: 'find-medicine', label: 'Find Medicine', icon: Search },

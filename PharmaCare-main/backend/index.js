@@ -5,6 +5,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routers/authRoutes');
 const inventoryRoutes = require('./routers/inventoryRoutes');
+const billRoutes = require('./routers/billRoutes');
 const { errorHandler } = require('./middleware/errorMiddleware');
 
 
@@ -44,9 +45,19 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health check route
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok',
+        message: 'PharmaCare API is running',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/bills', billRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

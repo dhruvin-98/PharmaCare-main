@@ -13,6 +13,112 @@ const EMAIL_PASSWORD_RAW =
 const EMAIL_PASSWORD = EMAIL_PASSWORD_RAW.replace(/\s+/g, "");
 const HAS_EMAIL_CREDENTIALS = Boolean(EMAIL_USER && EMAIL_PASSWORD);
 
+const HAS_TWILIO_CREDENTIALS = Boolean(
+  process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_SERVICE_SID
+);
+
+const twilioClient = HAS_TWILIO_CREDENTIALS
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null;
+
+const emailTransporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: EMAIL_USER,
+    pass: EMAIL_PASSWORD,
+  },
+});
+
+const normalizeEmail = (email = "") => email.toLowerCase().trim();
+const normalizePhone = (phone = "") => phone.replace(/\D/g, "");
+
+const toPublicUser = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  address: user.address,
+  city: user.city,
+  state: user.state,
+  pincode: user.pincode,
+  pharmacyName: user.pharmacyName,
+  licenseNumber: user.licenseNumber,
+  userType: user.userType,
+  isVerified: user.isVerified,
+});
+
+const sendEmailOtp = async (email, otp) => {
+  try {
+    if (!HAS_EMAIL_CREDENTIALS) {
+      console.error("❌ Email credentials not configured");
+      console.log("📝 DEVELOPMENT MODE - OTP for testing:", { email, otp });
+      return true;
+    }
+
+    await emailTransporter.sendMail({
+      from: `"PharmaCare" <${EMAIL_USER}>`,
+      to: email,
+      subject: "PharmaCare Registration OTP",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px;">
+          <h2 style="margin:0 0 12px; color:#1d4ed8;">Verify your PharmaCare account</h2>
+          <p style="margin:0 0 16px; color:#374151;">Use this OTP to complete your registration. This code will expire in 10 minutes.</p>
+          <div style="font-size: 28px; letter-spacing: 8px; font-weight: 700; color:#111827; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding: 14px 16px; text-align:center;">${otp}</div>
+          <p style="margin:16px 0 0; color:#6b7280; font-size:12px;">If you did not request this code, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    return true;
+  } catch (error) {
+    console.error("❌ OTP Email Error:", error.message);
+    console.log("📝 DEVELOPMENT MODE - OTP for testing (Email failed):", {
+      email,
+      otp,
+    });
+    return true;
+  }
+};
+
+const applyRegistrationFields = ({ user, payload }) => {
+  const {
+    name,
+    password,
+    userType,
+    pharmacyName,
+    licenseNumber,
+    email,
+    phone,
+    address,
+    city,
+    state,
+    pincode,
+  } = payload;
+
+  if (name) user.name = name.trim();
+  if (password) user.password = password;
+  if (email) user.email = normalizeEmail(email);
+  if (phone) user.phone = normalizePhone(phone);
+  if (address) user.address = address.trim();
+  if (city) user.city = city.trim();
+  if (state) user.state = state.trim();
+  if (pincode) user.pincode = pincode.trim();
+
+  if (userType) {
+    user.userType = userType;
+  }
+
+  if (user.userType === "pharmacist" && pharmacyName) {
+    user.pharmacyName = pharmacyName.trim();
+  }
+
+  if (user.userType === "pharmacist" && licenseNumber) {
+    user.licenseNumber = licenseNumber.trim();
+  }
+};
+
 /* ---------------------------------------------------------
    GET USER PROFILE
 --------------------------------------------------------- */
@@ -26,110 +132,68 @@ const getUserProfile = asyncHandler(async (req, res) => {
     name: req.user.name,
     email: req.user.email,
     phone: req.user.phone,
+    address: req.user.address,
+    city: req.user.city,
+    state: req.user.state,
+    pincode: req.user.pincode,
     pharmacyName: req.user.pharmacyName,
-    userType: req.user.userType
+    userType: req.user.userType,
   });
 });
-
-/* ---------------------------------------------------------
-   TWILIO CLIENT
---------------------------------------------------------- */
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
-
-/* ---------------------------------------------------------
-   EMAIL TRANSPORTER
---------------------------------------------------------- */
-const emailTransporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
-
-console.log("🔍 Email Configuration:");
-console.log("   User:", process.env.EMAIL_USER);
-console.log("   Password:", process.env.EMAIL_PASSWORD ? " configured" : " not configured");
-
-// Verify email configuration on startup
-if (HAS_EMAIL_CREDENTIALS) {
-  emailTransporter.verify((error) => {
-    if (error) {
-      console.error("❌ Email Configuration Error:", error.message);
-      console.log("⚠️  Gmail login failed. Use an App Password from a Google account with 2-Step Verification enabled.");
-    } else {
-      console.log("✅ Email server is ready to send emails");
-    }
-  });
-} else {
-  console.warn("⚠️  Email credentials are not configured. OTP will be logged in development mode.");
-}
-
-/* ---------------------------------------------------------
-   SEND EMAIL OTP FUNCTION
---------------------------------------------------------- */
-const sendEmailOtp = async (email, otp) => {
-  try {
-    // Check if email credentials are configured
-    if (!HAS_EMAIL_CREDENTIALS) {
-      console.error("❌ Email credentials not configured");
-      console.log("📝 DEVELOPMENT MODE - OTP for testing:", { email, otp });
-      return true; // Return true for development/testing
-    }
-
-    await emailTransporter.sendMail({
-      from: `"PharmaCare" <${EMAIL_USER}>`,
-      to: email,
-      subject: "Verification OTP",
-      html: `<h2>Your OTP: <b>${otp}</b></h2>`,
-    });
-    console.log("✅ OTP Email sent successfully to:", email);
-    return true;
-  } catch (error) {
-    // Fallback: Log OTP to console for development/testing if email fails
-    console.error("❌ OTP Email Error:", error.message);
-    console.log("📝 DEVELOPMENT MODE - OTP for testing (Email failed):", { email, otp });
-    if (error.code === "EAUTH" || /Invalid login|BadCredentials/i.test(error.message)) {
-      console.log("⚠️  Fix Gmail auth: enable 2-Step Verification, generate a 16-character App Password, and set EMAIL_PASSWORD/EMAIL_APP_PASSWORD.");
-    } else {
-      console.log("⚠️  Email send failed. Verify SMTP configuration and network access.");
-    }
-    return true; // Still return true so user can test with console OTP
-  }
-};
 
 /* ---------------------------------------------------------
    SEND OTP (EMAIL / PHONE)
 --------------------------------------------------------- */
 const sendOtp = asyncHandler(async (req, res) => {
-  const { phone, email } = req.body;
+  const { phone, email, otpChannel } = req.body;
 
-  if (!phone && !email) {
+  const cleanEmail = normalizeEmail(email);
+  const cleanPhone = normalizePhone(phone);
+  const selectedChannel = otpChannel === "phone" ? "phone" : "email";
+
+  if (!cleanEmail) {
     res.status(400);
-    throw new Error("Phone or Email required");
+    throw new Error("Email is required");
   }
 
-  let user;
+  if (cleanPhone && cleanPhone.length !== 10) {
+    res.status(400);
+    throw new Error("Invalid phone number");
+  }
 
-  // Phone OTP via Twilio
-  if (phone) {
-    const cleanPhone = phone.replace(/\D/g, "");
-    if (cleanPhone.length !== 10) {
-      res.status(400);
-      throw new Error("Invalid phone number");
-    }
+  if (selectedChannel === "phone" && !cleanPhone) {
+    res.status(400);
+    throw new Error("Phone number is required for mobile OTP");
+  }
 
-    // Check if Twilio credentials are configured
-    if (!process.env.TWILIO_SERVICE_SID || !process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+  let user = await User.findOne({ email: cleanEmail });
+
+  if (!user && cleanPhone) {
+    user = await User.findOne({ phone: cleanPhone });
+  }
+
+  if (!user) {
+    user = await User.create({
+      email: cleanEmail,
+      phone: cleanPhone || undefined,
+      otpChannel: selectedChannel,
+      userType: "customer",
+    });
+  } else {
+    user.email = cleanEmail;
+    if (cleanPhone) user.phone = cleanPhone;
+    user.otpChannel = selectedChannel;
+  }
+
+  if (selectedChannel === "phone") {
+    if (!HAS_TWILIO_CREDENTIALS || !twilioClient) {
       res.status(500);
-      throw new Error("Phone OTP service is not configured. Please use Email OTP instead.");
+      throw new Error(
+        "Phone OTP service is not configured. Please use Email OTP instead."
+      );
     }
 
     try {
-      // Send OTP via Twilio Verify Service
       await twilioClient.verify.v2
         .services(process.env.TWILIO_SERVICE_SID)
         .verifications.create({
@@ -142,18 +206,11 @@ const sendOtp = asyncHandler(async (req, res) => {
       throw new Error("Failed to send SMS OTP. Please use Email OTP instead.");
     }
 
-    await User.findOneAndUpdate(
-      { phone: cleanPhone },
-      { phone: cleanPhone },
-      { new: true, upsert: true }
-    );
-  }
-  // Email OTP Storage
-  if (email) {
-    const cleanEmail = email.toLowerCase().trim();
+    user.otp = null;
+    user.otpExpires = null;
+  } else {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // Valid date object
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     const emailSent = await sendEmailOtp(cleanEmail, otp);
     if (!emailSent) {
@@ -161,37 +218,79 @@ const sendOtp = asyncHandler(async (req, res) => {
       throw new Error("Failed to send OTP email");
     }
 
-    await User.findOneAndUpdate(
-      { email: cleanEmail },
-      { otp, otpExpires },
-      { new: true, upsert: true }
-    );
+    user.otp = otp;
+    user.otpExpires = otpExpires;
   }
 
-  res.json({ message: "OTP sent successfully" });
+  await user.save();
+
+  res.json({
+    message: "OTP sent successfully",
+    otpChannel: selectedChannel,
+  });
 });
+
 /* ---------------------------------------------------------
    VERIFY OTP
 --------------------------------------------------------- */
 const verifyOtp = asyncHandler(async (req, res) => {
-  const { name, phone, email, otp, userType, pharmacyName } = req.body;
+  const {
+    otp,
+    phone,
+    email,
+    otpChannel,
+    password,
+    name,
+    userType,
+    pharmacyName,
+    licenseNumber,
+    address,
+    city,
+    state,
+    pincode,
+  } = req.body;
 
-  if (!otp || (!phone && !email)) {
+  if (!otp) {
     res.status(400);
-    throw new Error("OTP and Phone/Email required");
+    throw new Error("OTP is required");
   }
 
-  let user;
-  let query = {};
+  const cleanEmail = normalizeEmail(email);
+  const cleanPhone = normalizePhone(phone);
+  const selectedChannel = otpChannel === "phone" ? "phone" : "email";
 
-  /* PHONE OTP VERIFY */
-  if (phone) {
-    const cleanPhone = phone.replace(/\D/g, "");
+  if (!cleanEmail) {
+    res.status(400);
+    throw new Error("Email is required");
+  }
 
-    // Check if Twilio credentials are configured
-    if (!process.env.TWILIO_SERVICE_SID || !process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+  if (cleanPhone && cleanPhone.length !== 10) {
+    res.status(400);
+    throw new Error("Invalid phone number");
+  }
+
+  let user = await User.findOne({ email: cleanEmail });
+
+  if (!user && cleanPhone) {
+    user = await User.findOne({ phone: cleanPhone });
+  }
+
+  if (!user) {
+    res.status(400);
+    throw new Error("Please request OTP first");
+  }
+
+  if (selectedChannel === "phone") {
+    if (!cleanPhone) {
+      res.status(400);
+      throw new Error("Phone number is required for mobile OTP");
+    }
+
+    if (!HAS_TWILIO_CREDENTIALS || !twilioClient) {
       res.status(500);
-      throw new Error("Phone OTP service is not configured. Please use Email OTP instead.");
+      throw new Error(
+        "Phone OTP service is not configured. Please use Email OTP instead."
+      );
     }
 
     try {
@@ -211,72 +310,139 @@ const verifyOtp = asyncHandler(async (req, res) => {
       res.status(400);
       throw new Error("Invalid or expired OTP");
     }
-
-    query.phone = cleanPhone;
-    user = await User.findOne(query);
-
-    if (!user) {
-      res.status(404);
-      throw new Error("User not found");
-    }
-
-    user.isVerified = true;
-    if (name && !user.name) user.name = name;
-    if (userType) user.userType = userType;
-    if (userType === "pharmacist" && pharmacyName) {
-      user.pharmacyName = pharmacyName;
-    }
-
-    await user.save();
-
-    return res.json({
-      token: generateToken(user._id, user.userType),
-      user,
-    });
-  }
-
-  /* EMAIL OTP VERIFY */
-  if (email) {
-    const cleanEmail = email.toLowerCase().trim();
-    query.email = cleanEmail;
-
-    user = await User.findOne(query);
-
-    if (!user) {
+  } else {
+    if (!user.otp || !user.otpExpires) {
       res.status(400);
       throw new Error("Please request OTP first");
     }
 
-    // Expiry Check (millisecond comparison)
     if (Date.now() > new Date(user.otpExpires).getTime()) {
       res.status(400);
       throw new Error("OTP expired");
     }
 
-    // OTP Match
     if (user.otp.toString().trim() !== otp.toString().trim()) {
       res.status(400);
       throw new Error("Incorrect OTP");
     }
-
-    user.isVerified = true;
-    user.otp = null;
-    user.otpExpires = null;
-
-    if (name && !user.name) user.name = name;
-    if (userType) user.userType = userType;
-    if (userType === "pharmacist" && pharmacyName) {
-      user.pharmacyName = pharmacyName;
-    }
-
-    await user.save();
-
-    // IMPORTANT — Return immediately
-    return res.json({
-      token: generateToken(user._id, user.userType),
-      user,
-    });
   }
+
+  if (!user.password && !password) {
+    res.status(400);
+    throw new Error("Password is required for first-time registration");
+  }
+
+  if (!user.name && !name) {
+    res.status(400);
+    throw new Error("Name is required for first-time registration");
+  }
+
+  if (
+    (userType || user.userType) === "pharmacist" &&
+    !user.pharmacyName &&
+    !pharmacyName
+  ) {
+    res.status(400);
+    throw new Error("Pharmacy name is required for pharmacists");
+  }
+
+  if (
+    (userType || user.userType) === "pharmacist" &&
+    !user.licenseNumber &&
+    !licenseNumber
+  ) {
+    res.status(400);
+    throw new Error("License number is required for pharmacists");
+  }
+
+  user.isVerified = true;
+  user.otp = null;
+  user.otpExpires = null;
+  user.otpChannel = selectedChannel;
+
+  applyRegistrationFields({
+    user,
+    payload: {
+      name,
+      password,
+      userType,
+      pharmacyName,
+      licenseNumber,
+      email: cleanEmail,
+      phone: cleanPhone,
+      address,
+      city,
+      state,
+      pincode,
+    },
+  });
+
+  await user.save();
+
+  const publicUser = toPublicUser(user);
+
+  return res.json({
+    token: generateToken(publicUser._id, publicUser.userType),
+    user: publicUser,
+  });
+});
+
+/* ---------------------------------------------------------
+   LOGIN (EMAIL/PHONE + PASSWORD)
+--------------------------------------------------------- */
+const loginUser = asyncHandler(async (req, res) => {
+  const { identifier, email, phone, password } = req.body;
+
+  const cleanIdentifier = (identifier || "").trim();
+  const cleanEmail = normalizeEmail(email || "");
+  const cleanPhone = normalizePhone(phone || "");
+
+  if (!password || password.trim().length < 6) {
+    res.status(400);
+    throw new Error("Valid password is required");
+  }
+
+  let user = null;
+
+  if (cleanEmail) {
+    user = await User.findOne({ email: cleanEmail });
+  }
+
+  if (!user && cleanPhone) {
+    user = await User.findOne({ phone: cleanPhone });
+  }
+
+  if (!user && cleanIdentifier) {
+    if (cleanIdentifier.includes("@")) {
+      user = await User.findOne({ email: normalizeEmail(cleanIdentifier) });
+    } else {
+      user = await User.findOne({ phone: normalizePhone(cleanIdentifier) });
+    }
+  }
+
+  if (!user || !user.password) {
+    res.status(401);
+    throw new Error("Invalid credentials");
+  }
+
+  if (!user.isVerified) {
+    res.status(403);
+    throw new Error("Please complete OTP verification before login");
+  }
+
+  const isPasswordValid = await user.matchPassword(password);
+
+  if (!isPasswordValid) {
+    res.status(401);
+    throw new Error("Invalid credentials");
+  }
+
+  const publicUser = toPublicUser(user);
+
+  return res.status(200).json({
+    token: generateToken(publicUser._id, publicUser.userType),
+    user: publicUser,
+  });
 });
 
 /* ---------------------------------------------------------
@@ -287,7 +453,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "User not found" });
   }
 
-  const { name, phone, address, pharmacyName, licenseNumber } = req.body;
+  const { name, phone, address, city, state, pincode, pharmacyName, licenseNumber } =
+    req.body;
 
   const user = await User.findById(req.user._id);
 
@@ -299,6 +466,9 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   if (name) user.name = name;
   if (phone) user.phone = phone;
   if (address) user.address = address;
+  if (city) user.city = city;
+  if (state) user.state = state;
+  if (pincode) user.pincode = pincode;
 
   if (user.userType === "pharmacist") {
     if (pharmacyName) user.pharmacyName = pharmacyName;
@@ -310,12 +480,10 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   res.status(200).json(updatedUser);
 });
 
-/* ---------------------------------------------------------
-   EXPORTS
---------------------------------------------------------- */
 module.exports = {
   sendOtp,
   verifyOtp,
+  loginUser,
   getUserProfile,
   updateUserProfile,
 };

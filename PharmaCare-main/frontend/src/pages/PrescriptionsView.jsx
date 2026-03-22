@@ -1,6 +1,6 @@
 // frontend/src/pages/PrescriptionsView.jsx
 import React, { useState } from 'react';
-import { FileText, Pill, Calendar, X } from 'lucide-react';
+import { Pill, Calendar, X } from 'lucide-react';
 
 // Prescriptions View
 const PrescriptionsView = ({ prescriptions }) => {
@@ -46,7 +46,7 @@ const rejectRx = async (id) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {prescriptions.map(rx => (
           <div key={rx.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-blue-300">
-            <div className="relative h-48 bg-gradient-to-br from-blue-50 to-blue-100">
+            <div className="relative h-48 bg-linear-to-br from-blue-50 to-blue-100">
               <img 
                 src={rx.image} 
                 alt="Prescription" 

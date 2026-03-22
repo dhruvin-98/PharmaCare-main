@@ -4,11 +4,20 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { DollarSign, Package, AlertTriangle, FileText, TrendingUp, Bell, RefreshCw } from 'lucide-react';
 import StatsCard from '../components/StatsCard.jsx';
 import Alert from '../components/Alert.jsx';
-import { getDaysUntilExpiry } from '../utils.js';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from '../services/api';
 
 const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
+  // --- Local state for bill stats and revenue ---
+  const [billStats, setBillStats] = useState({
+    summary: {
+      totalBills: 0,
+      totalRevenue: '0.00',
+      avgBillAmount: '0.00',
+      paymentMethods: { cash: 0, upi: 0 }
+    },
+    dailyStats: []
+  });
+
   // --- Local state for alerts ---
   const [alerts, setAlerts] = useState({
     lowStock: [],
@@ -16,16 +25,43 @@ const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
     expired: []
   });
   const [loadingAlerts, setLoadingAlerts] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [alertsError, setAlertsError] = useState(null);
+  const [statsError, setStatsError] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // --- Auth token ---
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
-  // --- Safe getters for sales and today's revenue ---
-  const todaySales = Array.isArray(sales) && sales.length > 0 
-    ? sales[sales.length - 1] 
-    : { revenue: 0, orders: 0, date: new Date() };
+  // --- Fetch bill stats from backend ---
+  const fetchBillStats = useCallback(async () => {
+    if (!token) return;
+
+    setLoadingStats(true);
+    setStatsError(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bills/stats/summary?days=7`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch bill stats (${res.status})`);
+      }
+
+      const data = await res.json();
+      setBillStats(data.data || {});
+    } catch (error) {
+      console.error('Error fetching bill stats:', error);
+      setStatsError(error.message);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [token]);
 
   // --- Fetch alerts from backend ---
   const fetchAlerts = useCallback(async () => {
@@ -38,7 +74,7 @@ const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
     setAlertsError(null);
 
     try {
-      const res = await fetch(`${API_URL}/inventory/alerts`, {
+      const res = await fetch(`${API_BASE_URL}/api/inventory/alerts`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -69,19 +105,21 @@ const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
     }
   }, [token]);
 
-  // --- Fetch alerts on mount ---
+  // --- Fetch both stats and alerts on mount ---
   useEffect(() => {
+    fetchBillStats();
     fetchAlerts();
-  }, [fetchAlerts]);
+  }, [fetchBillStats, fetchAlerts]);
 
-  // --- Auto-refresh alerts every 5 minutes ---
+  // --- Auto-refresh every 5 minutes ---
   useEffect(() => {
     const interval = setInterval(() => {
+      fetchBillStats();
       fetchAlerts();
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [fetchAlerts]);
+  }, [fetchBillStats, fetchAlerts]);
 
   const lowStockCount = alerts.lowStock.length;
   const expiringCount = alerts.expiringSoon.length;
@@ -89,6 +127,16 @@ const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
   const pendingRx = Array.isArray(prescriptions) 
     ? prescriptions.filter(p => p.status === 'pending').length 
     : 0;
+
+  // Get today's revenue (local/UTC match) with fallback to latest available day
+  const todayLocalKey = new Date().toLocaleDateString('en-CA');
+  const todayUtcKey = new Date().toISOString().split('T')[0];
+  const statsList = Array.isArray(billStats.dailyStats) ? billStats.dailyStats : [];
+  const todayStat = statsList.find((day) => day.date === todayLocalKey || day.date === todayUtcKey);
+  const latestStat = statsList.length > 0 ? statsList[statsList.length - 1] : null;
+  const displayedRevenueStat = todayStat || latestStat;
+  const todayRevenue = Number(displayedRevenueStat?.revenue || 0);
+  const todayOrders = Number(displayedRevenueStat?.orders || 0);
 
   return (
     <div className="space-y-6">
@@ -99,12 +147,15 @@ const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
             Last updated: {lastRefresh.toLocaleTimeString()}
           </div>
           <button
-            onClick={fetchAlerts}
-            disabled={loadingAlerts}
+            onClick={() => {
+              fetchBillStats();
+              fetchAlerts();
+            }}
+            disabled={loadingAlerts || loadingStats}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
-            title="Refresh alerts"
+            title="Refresh dashboard"
           >
-            <RefreshCw className={`h-4 w-4 ${loadingAlerts ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${(loadingAlerts || loadingStats) ? 'animate-spin' : ''}`} />
             <span className="text-sm">Refresh</span>
           </button>
         </div>
@@ -115,10 +166,9 @@ const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
         <StatsCard 
           icon={DollarSign} 
           title="Today's Revenue" 
-          value={`₹${(todaySales.revenue || 0).toLocaleString()}`}
-          subtitle={`${todaySales.orders || 0} orders`}
+          value={`₹${Number(todayRevenue).toLocaleString()}`}
+          subtitle={todayStat ? `${todayOrders} orders` : `${todayOrders} orders (latest day)`}
           color="#10B981"
-          trend="+12.5%"
         />
         <StatsCard 
           icon={Package} 
@@ -136,46 +186,48 @@ const Dashboard = ({ medicines = [], prescriptions = [], sales = [] }) => {
         />
         <StatsCard 
           icon={FileText} 
-          title="Pending Rx" 
-          value={pendingRx}
-          subtitle="Awaiting approval"
+          title="Total Bills (7 Days)" 
+          value={billStats.summary?.totalBills || 0}
+          subtitle={`₹${Number(billStats.summary?.totalRevenue || 0).toLocaleString()}`}
           color="#8B5CF6"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Sales Trend */}
+        {/* Daily Sales Trend */}
         <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
             <TrendingUp className="mr-2 h-5 w-5 text-blue-600" />
-            Weekly Sales Trend
+            7-Day Revenue Trend
           </h3>
           <div className="space-y-3">
-            {Array.isArray(sales) && sales.length > 0 ? (
-              sales.map((day, idx) => (
+            {loadingStats ? (
+              <div className="text-center py-8 text-gray-500">Loading sales data...</div>
+            ) : billStats.dailyStats && billStats.dailyStats.length > 0 ? (
+              billStats.dailyStats.map((day, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">
-                    {new Date(day.date).toLocaleDateString('en-US', { 
+                    {new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { 
                       weekday: 'short', 
                       month: 'short', 
                       day: 'numeric' 
                     })}
                   </span>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 flex-1 ml-4">
                     <div className="w-48 bg-gray-200 rounded-full h-2">
                       <div 
                         className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, ((day.revenue || 0) / 20000) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (day.revenue / (Math.max(...billStats.dailyStats.map(d => d.revenue)) || 1)) * 100)}%` }}
                       />
                     </div>
-                    <span className="text-sm font-semibold text-gray-700 w-20 text-right">
-                      ₹{(day.revenue || 0).toLocaleString()}
+                    <span className="text-sm font-semibold text-gray-700 w-24 text-right">
+                      ₹{Number(day.revenue).toLocaleString()}
                     </span>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-gray-500">No sales data available</div>
+              <div className="text-gray-500 text-center py-8">No sales data available</div>
             )}
           </div>
         </div>
