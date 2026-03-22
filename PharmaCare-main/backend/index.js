@@ -18,17 +18,27 @@ const app = express();
 
 // Middleware
 
-// 🚨 CORS FIX 🚨
-// We use the wildcard '*' to allow all origins. 
-// This is the simplest way to support local development and Vercel preview links
-// (like 'pharma-care-eqoh.vercel.app') during development/staging.
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://pharma-care-pcc8.vercel.app',
+];
+
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'https://pharma-care-pcc8.vercel.app', // Your known main domain
-        '*' // Allows all Vercel preview domains and other origins
-    ],
-    credentials: true
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+
+        const isAllowed =
+            allowedOrigins.includes(origin) ||
+            /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
+
+        if (isAllowed) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204,
 }));
 
 app.use(express.json());
@@ -57,6 +67,34 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, '127.0.0.1', () => {
     console.log(`Server running on port ${PORT}`);
+});
+
+// Enable SO_REUSEADDR to allow fast restarts
+if (server._handle) {
+    server._handle.setBlocking(false);
+}
+
+// Handle port already in use error with retry logic
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`\n❌ Port ${PORT} is already in use.`);
+        console.error(`\n📝 Fix options:`);
+        console.error(`   1. Kill the existing process: netstat -ano | findstr :${PORT}, then taskkill /PID <PID> /F`);
+        console.error(`   2. Change PORT env variable: set PORT=5001 or PORT=3000\n`);
+        setTimeout(() => process.exit(1), 500);
+    } else {
+        console.error('Server error:', err);
+        process.exit(1);
+    }
+});
+
+// Graceful shutdown for file changes (nodemon restarts)
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, closing server...');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
 });

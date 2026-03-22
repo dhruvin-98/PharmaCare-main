@@ -15,6 +15,11 @@ const protect = asyncHandler(async (req, res, next) => {
       // Get token from header
       token = req.headers.authorization.split(' ')[1];
 
+      if (!token) {
+        res.status(401);
+        throw new Error('Not authorized, token missing');
+      }
+
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -28,9 +33,12 @@ const protect = asyncHandler(async (req, res, next) => {
 
       next();
     } catch (error) {
-      console.error('Token verification error:', error);
+      const message = error?.name === 'TokenExpiredError'
+        ? 'Not authorized, token expired'
+        : 'Not authorized, invalid token';
+      console.warn(`JWT auth failed: ${error?.name || 'UnknownError'}`);
       res.status(401);
-      throw new Error('Not authorized, token failed');
+      throw new Error(message);
     }
   } else {
     res.status(401);

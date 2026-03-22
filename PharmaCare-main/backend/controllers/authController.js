@@ -4,6 +4,15 @@ const generateToken = require("../config/generateToken");
 const twilio = require("twilio");
 const nodemailer = require("nodemailer");
 
+const EMAIL_USER = process.env.EMAIL_USER || process.env.MAIL_USER;
+const EMAIL_PASSWORD_RAW =
+  process.env.EMAIL_PASSWORD ||
+  process.env.EMAIL_PASS ||
+  process.env.MAIL_PASS ||
+  "";
+const EMAIL_PASSWORD = EMAIL_PASSWORD_RAW.replace(/\s+/g, "");
+const HAS_EMAIL_CREDENTIALS = Boolean(EMAIL_USER && EMAIL_PASSWORD);
+
 /* ---------------------------------------------------------
    GET USER PROFILE
 --------------------------------------------------------- */
@@ -41,14 +50,23 @@ const emailTransporter = nodemailer.createTransport({
   },
 });
 
+console.log("🔍 Email Configuration:");
+console.log("   User:", process.env.EMAIL_USER);
+console.log("   Password:", process.env.EMAIL_PASSWORD ? " configured" : " not configured");
+
 // Verify email configuration on startup
-emailTransporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ Email Configuration Error:", error.message);
-  } else {
-    console.log("✅ Email server is ready to send emails");
-  }
-});
+if (HAS_EMAIL_CREDENTIALS) {
+  emailTransporter.verify((error) => {
+    if (error) {
+      console.error("❌ Email Configuration Error:", error.message);
+      console.log("⚠️  Gmail login failed. Use an App Password from a Google account with 2-Step Verification enabled.");
+    } else {
+      console.log("✅ Email server is ready to send emails");
+    }
+  });
+} else {
+  console.warn("⚠️  Email credentials are not configured. OTP will be logged in development mode.");
+}
 
 /* ---------------------------------------------------------
    SEND EMAIL OTP FUNCTION
@@ -56,14 +74,14 @@ emailTransporter.verify((error, success) => {
 const sendEmailOtp = async (email, otp) => {
   try {
     // Check if email credentials are configured
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    if (!HAS_EMAIL_CREDENTIALS) {
       console.error("❌ Email credentials not configured");
       console.log("📝 DEVELOPMENT MODE - OTP for testing:", { email, otp });
       return true; // Return true for development/testing
     }
 
     await emailTransporter.sendMail({
-      from: `"PharmaCare" <${process.env.EMAIL_USER}>`,
+      from: `"PharmaCare" <${EMAIL_USER}>`,
       to: email,
       subject: "Verification OTP",
       html: `<h2>Your OTP: <b>${otp}</b></h2>`,
@@ -74,7 +92,11 @@ const sendEmailOtp = async (email, otp) => {
     // Fallback: Log OTP to console for development/testing if email fails
     console.error("❌ OTP Email Error:", error.message);
     console.log("📝 DEVELOPMENT MODE - OTP for testing (Email failed):", { email, otp });
-    console.log("⚠️  To fix this, please configure valid Gmail credentials with App Password or Less Secure App Access");
+    if (error.code === "EAUTH" || /Invalid login|BadCredentials/i.test(error.message)) {
+      console.log("⚠️  Fix Gmail auth: enable 2-Step Verification, generate a 16-character App Password, and set EMAIL_PASSWORD/EMAIL_APP_PASSWORD.");
+    } else {
+      console.log("⚠️  Email send failed. Verify SMTP configuration and network access.");
+    }
     return true; // Still return true so user can test with console OTP
   }
 };
@@ -289,74 +311,11 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   REGISTER
---------------------------------------------------------- */
-const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, userType, pharmacyName } = req.body;
-
-  if (!name || !email || !password || !userType) {
-    res.status(400);
-    throw new Error("Missing required fields");
-  }
-
-  const userExists = await User.findOne({ email });
-
-  if (userExists) {
-    res.status(400);
-    throw new Error("User already exists");
-  }
-
-  const data = {
-    name,
-    email,
-    password,
-    userType,
-    isVerified: true,
-  };
-
-  if (userType === "pharmacist") {
-    if (!pharmacyName) {
-      res.status(400);
-      throw new Error("Pharmacy name required");
-    }
-    data.pharmacyName = pharmacyName;
-  }
-
-  const user = await User.create(data);
-
-  res.json({
-    ...user.toObject(),
-    token: generateToken(user._id, user.userType),
-  });
-});
-
-/* ---------------------------------------------------------
-   LOGIN
---------------------------------------------------------- */
-const loginUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-
-  const user = await User.findOne({ email });
-
-  if (!user || !(await user.matchPassword(password))) {
-    res.status(400);
-    throw new Error("Invalid credentials");
-  }
-
-  res.json({
-    ...user.toObject(),
-    token: generateToken(user._id, user.userType),
-  });
-});
-
-/* ---------------------------------------------------------
    EXPORTS
 --------------------------------------------------------- */
 module.exports = {
   sendOtp,
   verifyOtp,
-  registerUser,
-  loginUser,
   getUserProfile,
   updateUserProfile,
 };

@@ -18,9 +18,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: function() {
-        return this.email != null;
-      },
+      default: null,
     },
     phone: {
       type: String,
