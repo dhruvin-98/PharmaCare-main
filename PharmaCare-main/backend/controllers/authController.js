@@ -391,7 +391,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
    LOGIN (EMAIL/PHONE + PASSWORD)
 --------------------------------------------------------- */
 const loginUser = asyncHandler(async (req, res) => {
-  const { identifier, email, phone, password } = req.body;
+  const { identifier, email, phone, password, userType } = req.body;
 
   const cleanIdentifier = (identifier || "").trim();
   const cleanEmail = normalizeEmail(email || "");
@@ -435,6 +435,14 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!isPasswordValid) {
     res.status(401);
     throw new Error("Invalid credentials");
+  }
+
+  if (
+    (userType === "customer" || userType === "pharmacist") &&
+    user.userType !== userType
+  ) {
+    res.status(403);
+    throw new Error(`Please login as ${user.userType}`);
   }
 
   const publicUser = toPublicUser(user);

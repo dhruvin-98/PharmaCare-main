@@ -214,7 +214,7 @@ const AuthPage = ({
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ identifier, password, userType }),
       });
 
       const data = await response.json();
@@ -475,6 +475,32 @@ const AuthPage = ({
 
               {authMode === 'login' && (
                 <form onSubmit={handleLoginSubmit} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">I am a</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setUserType('customer')}
+                        className={`py-3 rounded-xl border-2 font-semibold ${
+                          userType === 'customer' ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-200 text-gray-700'
+                        }`}
+                      >
+                        <Users className="inline h-4.5 w-4.5 mr-2" />
+                        User
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserType('pharmacist')}
+                        className={`py-3 rounded-xl border-2 font-semibold ${
+                          userType === 'pharmacist' ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-200 text-gray-700'
+                        }`}
+                      >
+                        <Building2 className="inline h-4.5 w-4.5 mr-2" />
+                        Pharmacist
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2"><Mail className="inline h-4 w-4 mr-1" />Email or Phone</label>
                     <input
