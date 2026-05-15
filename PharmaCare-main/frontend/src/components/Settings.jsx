@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import {
   Settings as SettingsIcon, Bell, Lock, User, Shield, Globe,
-  Mail, Smartphone, Eye, EyeOff, Save, ChevronRight, Moon,
-  Sun, Trash2, Download, Upload, CheckCircle, Key, AlertCircle
+  Mail, Smartphone, Eye, EyeOff, Save, ChevronRight,
+  Trash2, Download, Upload, CheckCircle, Key, AlertCircle
 } from 'lucide-react';
 
 const Settings = () => {
@@ -68,7 +68,7 @@ const Settings = () => {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'privacy', label: 'Privacy', icon: Shield },
     { id: 'security', label: 'Security', icon: Lock },
-    { id: 'appearance', label: 'Appearance', icon: Moon },
+    { id: 'appearance', label: 'Appearance', icon: SettingsIcon },
   ];
 
   return (
@@ -409,42 +409,9 @@ const Settings = () => {
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Theme
                       </label>
-                      <div className="grid grid-cols-3 gap-4">
-                        <button
-                          onClick={() => handleSettingChange('theme', 'light')}
-                          className={`p-4 border-2 rounded-xl transition-all ${
-                            settings.theme === 'light'
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <Sun className="h-6 w-6 mx-auto mb-2 text-yellow-500" />
-                          <p className="text-sm font-semibold">Light</p>
-                        </button>
-
-                        <button
-                          onClick={() => handleSettingChange('theme', 'dark')}
-                          className={`p-4 border-2 rounded-xl transition-all ${
-                            settings.theme === 'dark'
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <Moon className="h-6 w-6 mx-auto mb-2 text-indigo-600" />
-                          <p className="text-sm font-semibold">Dark</p>
-                        </button>
-
-                        <button
-                          onClick={() => handleSettingChange('theme', 'auto')}
-                          className={`p-4 border-2 rounded-xl transition-all ${
-                            settings.theme === 'auto'
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <Globe className="h-6 w-6 mx-auto mb-2 text-purple-600" />
-                          <p className="text-sm font-semibold">Auto</p>
-                        </button>
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <p className="text-sm font-semibold text-gray-700">Light (default)</p>
+                        <p className="text-xs text-gray-500 mt-1">Theme selection is fixed to Light.</p>
                       </div>
                     </div>
 

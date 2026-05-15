@@ -12,6 +12,13 @@ const EMAIL_PASSWORD_RAW =
   "";
 const EMAIL_PASSWORD = EMAIL_PASSWORD_RAW.replace(/\s+/g, "");
 const HAS_EMAIL_CREDENTIALS = Boolean(EMAIL_USER && EMAIL_PASSWORD);
+const EMAIL_HOST = process.env.EMAIL_HOST;
+const EMAIL_PORT = Number(process.env.EMAIL_PORT || 0);
+const EMAIL_SECURE = String(process.env.EMAIL_SECURE || "").toLowerCase() === "true";
+const SMS_COUNTRY_CODE_RAW = process.env.SMS_COUNTRY_CODE || "+91";
+const SMS_COUNTRY_CODE = SMS_COUNTRY_CODE_RAW.startsWith("+")
+  ? SMS_COUNTRY_CODE_RAW
+  : `+${SMS_COUNTRY_CODE_RAW}`;
 
 const HAS_TWILIO_CREDENTIALS = Boolean(
   process.env.TWILIO_ACCOUNT_SID &&
@@ -23,16 +30,42 @@ const twilioClient = HAS_TWILIO_CREDENTIALS
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
-const emailTransporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASSWORD,
-  },
-});
+const emailTransporter = nodemailer.createTransport(
+  EMAIL_HOST && EMAIL_PORT
+    ? {
+        host: EMAIL_HOST,
+        port: EMAIL_PORT,
+        secure: EMAIL_SECURE,
+        auth: {
+          user: EMAIL_USER,
+          pass: EMAIL_PASSWORD,
+        },
+      }
+    : {
+        service: "gmail",
+        auth: {
+          user: EMAIL_USER,
+          pass: EMAIL_PASSWORD,
+        },
+      }
+);
+
+if (HAS_EMAIL_CREDENTIALS) {
+  emailTransporter.verify((error) => {
+    if (error) {
+      console.error("❌ Email transporter verification failed:", error.message);
+      console.error(
+        "ℹ️ Fix: use a valid Gmail App Password in EMAIL_PASSWORD and enable 2-Step Verification on EMAIL_USER"
+      );
+    } else {
+      console.log("✅ Email transporter is ready");
+    }
+  });
+}
 
 const normalizeEmail = (email = "") => email.toLowerCase().trim();
 const normalizePhone = (phone = "") => phone.replace(/\D/g, "");
+const toSmsDestination = (phone) => `${SMS_COUNTRY_CODE}${phone}`;
 
 const toPublicUser = (user) => ({
   _id: user._id,
@@ -52,12 +85,12 @@ const toPublicUser = (user) => ({
 const sendEmailOtp = async (email, otp) => {
   try {
     if (!HAS_EMAIL_CREDENTIALS) {
-      console.error("❌ Email credentials not configured");
-      console.log("📝 DEVELOPMENT MODE - OTP for testing:", { email, otp });
-      return true;
+      throw new Error(
+        "Email OTP service is not configured. Set EMAIL_USER and EMAIL_PASSWORD in backend env."
+      );
     }
 
-    await emailTransporter.sendMail({
+    const emailResult = await emailTransporter.sendMail({
       from: `"PharmaCare" <${EMAIL_USER}>`,
       to: email,
       subject: "PharmaCare Registration OTP",
@@ -71,14 +104,19 @@ const sendEmailOtp = async (email, otp) => {
       `,
     });
 
+    if (!emailResult.accepted || !emailResult.accepted.length) {
+      throw new Error("Email provider did not accept recipient address");
+    }
+
     return true;
   } catch (error) {
     console.error("❌ OTP Email Error:", error.message);
-    console.log("📝 DEVELOPMENT MODE - OTP for testing (Email failed):", {
-      email,
-      otp,
-    });
-    return true;
+    if (/BadCredentials|Invalid login|Username and Password not accepted/i.test(error.message || "")) {
+      console.error(
+        "ℹ️ Gmail rejected credentials. Generate a new 16-character App Password and set EMAIL_PASSWORD in backend/.env"
+      );
+    }
+    return false;
   }
 };
 
@@ -197,13 +235,16 @@ const sendOtp = asyncHandler(async (req, res) => {
       await twilioClient.verify.v2
         .services(process.env.TWILIO_SERVICE_SID)
         .verifications.create({
-          to: `+91${cleanPhone}`,
+          to: toSmsDestination(cleanPhone),
           channel: "sms",
         });
     } catch (twilioError) {
       console.error("Twilio Error:", twilioError.message);
       res.status(500);
-      throw new Error("Failed to send SMS OTP. Please use Email OTP instead.");
+      throw new Error(
+        twilioError?.message ||
+          "Failed to send SMS OTP. Please use Email OTP instead."
+      );
     }
 
     user.otp = null;
@@ -215,7 +256,9 @@ const sendOtp = asyncHandler(async (req, res) => {
     const emailSent = await sendEmailOtp(cleanEmail, otp);
     if (!emailSent) {
       res.status(500);
-      throw new Error("Failed to send OTP email");
+      throw new Error(
+        "Failed to send OTP email. Check EMAIL_USER and EMAIL_PASSWORD (Gmail app password)."
+      );
     }
 
     user.otp = otp;
@@ -297,7 +340,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
       const verificationCheck = await twilioClient.verify.v2
         .services(process.env.TWILIO_SERVICE_SID)
         .verificationChecks.create({
-          to: `+91${cleanPhone}`,
+          to: toSmsDestination(cleanPhone),
           code: otp,
         });
 
@@ -307,8 +350,17 @@ const verifyOtp = asyncHandler(async (req, res) => {
       }
     } catch (error) {
       console.error("Twilio Verification Error:", error.message);
-      res.status(400);
-      throw new Error("Invalid or expired OTP");
+
+      const isInvalidOtp =
+        /invalid|expired|code/i.test(error?.message || "") ||
+        error?.code === 20404;
+
+      res.status(isInvalidOtp ? 400 : 500);
+      throw new Error(
+        isInvalidOtp
+          ? "Invalid or expired OTP"
+          : "OTP verification service is unavailable. Please try again."
+      );
     }
   } else {
     if (!user.otp || !user.otpExpires) {
@@ -397,9 +449,9 @@ const loginUser = asyncHandler(async (req, res) => {
   const cleanEmail = normalizeEmail(email || "");
   const cleanPhone = normalizePhone(phone || "");
 
-  if (!password || password.trim().length < 6) {
+  if (!password || !password.trim()) {
     res.status(400);
-    throw new Error("Valid password is required");
+    throw new Error("Password is required");
   }
 
   let user = null;

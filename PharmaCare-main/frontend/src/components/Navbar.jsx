@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Package, FileText, TrendingUp, 
   Search, Upload, ShoppingCart, LogOut, Menu, X,
-  Pill, User, Settings, Bell, ChevronDown, Sun, Moon,
+  Pill, User, Settings, Bell, ChevronDown,
   HelpCircle, Mail, Check, Clock, Package2, AlertCircle, Receipt
 } from 'lucide-react';
 
@@ -21,7 +21,6 @@ const Navbar = ({
   const [scrolled, setScrolled] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [user, setUser] = useState(null);
 
   
@@ -198,14 +197,7 @@ const Navbar = ({
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-2">
-            {/* Dark Mode Toggle */}
-            <button 
-              onClick={() => setDarkMode(!darkMode)}
-              className="hidden md:flex hover:bg-white/10 p-2.5 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 backdrop-blur-sm"
-              title="Toggle Dark Mode"
-            >
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
+            {/* Dark Mode toggle removed */}
 
             {/* Help Button */}
             {/* <button 

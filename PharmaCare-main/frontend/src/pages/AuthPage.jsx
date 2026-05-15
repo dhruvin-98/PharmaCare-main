@@ -269,7 +269,6 @@ const AuthPage = ({
     if (!/^\d{6}$/.test(formData.pincode)) return 'Pincode must be 6 digits';
     if (hasPhone && formData.phone.length !== 10) return 'Phone number must be 10 digits';
     if (!formData.password.trim()) return 'Password is required';
-    if (formData.password.trim().length < 6) return 'Password must be at least 6 characters';
     if (userType === 'pharmacist' && !formData.pharmacyName.trim()) return 'Pharmacy name is required';
     if (userType === 'pharmacist' && !formData.licenseNumber.trim()) return 'License number is required';
     if (!geoLocation?.latitude || !geoLocation?.longitude) return 'Please share your current location';
@@ -521,7 +520,6 @@ const AuthPage = ({
                       value={loginData.password}
                       onChange={handleLoginInputChange}
                       type="password"
-                      minLength={6}
                       required
                       className="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                       placeholder="Enter your password"
@@ -594,7 +592,7 @@ const AuthPage = ({
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2"><Lock className="inline h-4 w-4 mr-1" />Password</label>
-                      <input name="password" value={formData.password} onChange={handleInputChange} type="password" minLength={6} required className="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none" placeholder="Minimum 6 characters" />
+                      <input name="password" value={formData.password} onChange={handleInputChange} type="password" required className="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none" placeholder="Create your password" />
                     </div>
                   </div>
 
